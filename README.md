@@ -14,7 +14,8 @@ or
 
 ### Optional arguments
 ```
-usage: chip8.py [-h] [-f FREQUENCY] [-s SCALE] [-c COLOR] [--error] [--log]
+usage: chip8.py [-h] [-f FREQUENCY] [-s SCALE] [-c COLOR] [--legacy] [--error]
+                [--log]
                 rom
 
 CHIP-8 interpreter
@@ -27,6 +28,7 @@ optional arguments:
   -f FREQUENCY  set CPU speed [Hz] (default: 500)
   -s SCALE      set display scale (default: 10)
   -c COLOR      set display color (default: white)
+  --legacy      use legacy settings
   --error       show error messages
   --log         show log
 ```
