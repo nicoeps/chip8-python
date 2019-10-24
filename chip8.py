@@ -12,12 +12,13 @@ from pygame import HWSURFACE, DOUBLEBUF
 
 
 class Chip8:
-    def __init__(self, scale=10, color="white", error=False, log=False):
+    def __init__(self, scale=10, color="white", legacy=False, error=False, log=False):
         self.scale = scale
         if color in pygame.color.THECOLORS:
             self.color = pygame.color.THECOLORS[color]
         else:
             self.color = pygame.color.THECOLORS["white"]
+        self.legacy = legacy
         self.error = error
         self.log = log
 
@@ -124,11 +125,10 @@ class Chip8:
                 self.pc.set(self.stack[self.sp])
 
             # Unknown opcode [0x0000]
-            else:
-                if self.error:
-                    print("Unknown opcode [0x0000]: 0x{:X}".format(
-                        int(self.opcode))
-                    )
+            elif self.error:
+                print("Unknown opcode [0x0000]: 0x{:X}".format(
+                    int(self.opcode))
+                )
 
         # 1nnn: Jump to location nnn
         elif op == 0x1:
@@ -187,30 +187,37 @@ class Chip8:
 
             # 8xy5: Set Vx = Vx - Vy, set VF = NOT borrow
             elif n == 0x5:
-                self.V[0xF].set(self.V[x] > self.V[y])
+                self.V[0xF].set(self.V[x] >= self.V[y])
                 self.V[x] -= self.V[y]
 
             # 8xy6: Set Vx = Vx SHR 1
             elif n == 0x6:
-                self.V[0xF].set(self.V[x] & 0x0001)
-                self.V[x] >>= 1
+                if self.legacy:
+                    self.V[0xF].set(self.V[y] & 0x0001)
+                    self.V[x].set(self.V[y] >> 1)
+                else:
+                    self.V[0xF].set(self.V[x] & 0x0001)
+                    self.V[x] >>= 1
 
             # 8xy7: Set Vx = Vy - Vx, set VF = NOT borrow
             elif n == 0x7:
-                self.V[0xF].set(self.V[y] > self.V[x])
-                self.V[y] -= self.V[x]
+                self.V[0xF].set(self.V[y] >= self.V[x])
+                self.V[x].set(self.V[y] - self.V[x])
 
             # 8xyE: Set Vx = Vx SHL 1
             elif n == 0xE:
-                self.V[0xF].set(self.V[x] >> 7)
-                self.V[x] <<= 1
+                if self.legacy:
+                    self.V[0xF].set(self.V[y] >> 7)
+                    self.V[x].set(self.V[y] << 1)
+                else:
+                    self.V[0xF].set(self.V[x] >> 7)
+                    self.V[x] <<= 1
 
             # Unknown opcode [0x8000]
-            else:
-                if self.error:
-                    print("Unknown opcode [0x8000]: 0x{:X}".format(
-                        int(self.opcode))
-                    )
+            elif self.error:
+                print("Unknown opcode [0x8000]: 0x{:X}".format(
+                    int(self.opcode))
+                )
 
         # 9xy0: Skip next instruction if Vx != Vy
         elif op == 0x9:
@@ -276,11 +283,10 @@ class Chip8:
                     self.pc += 2
 
             # Unknown opcode [0xE000]
-            else:
-                if self.error:
-                    print("Unknown opcode [0xE000]: 0x{:X}".format(
-                        int(self.opcode))
-                    )
+            elif self.error:
+                print("Unknown opcode [0xE000]: 0x{:X}".format(
+                    int(self.opcode))
+                )
 
         elif op == 0xF:
             # Fx07: Set Vx = delay timer value
@@ -322,24 +328,26 @@ class Chip8:
             elif kk == 0x55:
                 for i in range(x+1):
                     self.memory[self.I+i].set(self.V[i])
+                if self.legacy:
+                    self.I += x+1
 
             # Fx65: Read registers V0 through Vx from memory
             # starting at location I
             elif kk == 0x65:
                 for i in range(x+1):
                     self.V[i].set(self.memory[int(self.I)+i])
+                if self.legacy:
+                    self.I += x+1
 
             # Unknown opcode [0xF000]
-            else:
-                if self.error:
-                    print("Unknown opcode [0xF000]: 0x{:X}".format(
-                        int(self.opcode))
-                    )
+            elif self.error:
+                print("Unknown opcode [0xF000]: 0x{:X}".format(
+                    int(self.opcode))
+                )
 
         # Unknown opcode
-        else:
-            if self.error:
-                print("Unknown opcode: 0x{:X}".format(int(self.opcode)))
+        elif self.error:
+            print("Unknown opcode: 0x{:X}".format(int(self.opcode)))
 
         self.pc += 2
 
@@ -488,7 +496,7 @@ class Short:
 
 
 def main(args):
-    chip8 = Chip8(args.scale, args.color, args.error, args.log)
+    chip8 = Chip8(args.scale, args.color, args.legacy, args.error, args.log)
     chip8.load(args.rom)
     last = time()
 
@@ -517,6 +525,8 @@ if __name__ == "__main__":
                         help="set display scale (default: 10)")
     parser.add_argument("-c", dest="color", type=str, default="white",
                         help="set display color (default: white)")
+    parser.add_argument("--legacy", action="store_true", 
+                        help="use legacy settings")
     parser.add_argument("--error", action="store_true",
                         help="show error messages")
     parser.add_argument("--log", action="store_true", help="show log")
